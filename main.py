@@ -2,6 +2,10 @@ import requests
 import selectorlib
 import smtplib,ssl
 import time
+import sqlite3
+
+# Establish a connection to Db
+connection = sqlite3.connect("Database.db")
 
 URL = "https://programmer100.pythonanywhere.com/tours/"
 
@@ -37,12 +41,21 @@ def send_email(message):
 
 
 def store(extracted):
-    with open("data.txt","a") as file: #open file in append mode so that it doesn't override the values
-        file.write(extracted + "\n")
+    row = extracted.split(",")
+    row = [item.strip() for item in row]
+    cursor = connection.cursor()
+    cursor.execute("INSERT INTO EVENTS VALUES (?,?,?)",row)
+    connection.commit()
 
-def read(extracted_data):
-    with open("data.txt","r") as file:
-        return file.read()
+def read(extracted):
+    row = extracted.split(",")
+    row = [item.strip() for item in row]
+    Event_name,Event_city,Event_date = row
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM EVENTS where Event_name=? and Event_city=? and Event_date=?",(Event_name,Event_city,Event_date))
+    rows= cursor.fetchall()
+    print(rows)
+    return rows
 
 if __name__ == "__main__":
     # print(scrape(url=URL))
@@ -51,9 +64,10 @@ if __name__ == "__main__":
         extracted = extract(source=scraped)
         print(extracted)
 
-        content = read(extracted)
+
         if extracted != "No upcoming tours":
-            if extracted not in content:
+            rows= read(extracted)
+            if not rows: # This means if row not in database as row variable contain the select query from db
                 store(extracted)
                 send_email(message=f"Subject: New Tour Found\nMIME-Version: 1.0\nContent-Type: text/html\n\n "
                                    f"<html><body><p>Hey, We found a new tour for you!!</p>" \
